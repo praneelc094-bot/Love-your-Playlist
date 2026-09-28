@@ -4,3 +4,5 @@ sentence-transformers
 librosa
 scikit-learn
 tqdm
+joblib
+pyarrow
