@@ -1,0 +1,10 @@
+model/data/
+*.env
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+.streamlit/secrets.toml
+config.js
+key.md
