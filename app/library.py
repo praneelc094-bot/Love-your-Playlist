@@ -132,15 +132,119 @@ def fetch_user_top_artists(
         return []
 
 
-def fetch_user_saved_tracks(sp, limit: int = 50) -> list[dict[str, Any]]:
-    """Fetches user's recently saved library tracks."""
+def fetch_user_playlist_tracks(
+    sp, limit_playlists: int = 10, limit_per_playlist: int = 30
+) -> list[dict[str, Any]]:
+    """Fetches tracks from the user's saved/created Spotify playlists."""
+    tracks: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
     try:
-        results = sp.current_user_saved_tracks(limit=limit)
-        items = results.get("items", [])
-        return [item["track"] for item in items if "track" in item]
+        playlists_res = sp.current_user_playlists(limit=limit_playlists)
+        pl_items = playlists_res.get("items", []) if playlists_res else []
+        for pl in pl_items:
+            if not pl or "id" not in pl:
+                continue
+            try:
+                pl_tracks_res = sp.playlist_tracks(pl["id"], limit=limit_per_playlist)
+                for item in pl_tracks_res.get("items", []):
+                    t = item.get("track") if isinstance(item, dict) else None
+                    if t and isinstance(t, dict) and t.get("id") and t["id"] not in seen_ids:
+                        seen_ids.add(t["id"])
+                        tracks.append(t)
+            except Exception as pe:
+                print(f"Error fetching tracks for playlist {pl.get('name')}: {pe}")
     except Exception as e:
-        print(f"Error fetching saved tracks: {e}")
+        print(f"Error fetching user playlists: {e}")
+    return tracks
+
+
+def fetch_user_recently_played(sp, limit: int = 50) -> list[dict[str, Any]]:
+    """Fetches user's recently played tracks."""
+    try:
+        results = sp.current_user_recently_played(limit=limit)
+        items = results.get("items", []) if results else []
+        tracks = []
+        seen_ids = set()
+        for item in items:
+            t = item.get("track") if isinstance(item, dict) else None
+            if t and isinstance(t, dict) and t.get("id") and t["id"] not in seen_ids:
+                seen_ids.add(t["id"])
+                tracks.append(t)
+        return tracks
+    except Exception as e:
+        print(f"Error fetching recently played tracks: {e}")
         return []
+
+
+def fetch_user_library_comprehensive(
+    sp,
+    source: str = "all",
+    time_range: str = "medium_term",
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[tuple[str, int]]]:
+    """
+    Fetches user listening data across multiple library endpoints:
+    - Saved Songs (Liked Tracks)
+    - Playlists
+    - Top Tracks History (if available)
+    - Recently Played
+
+    Deduplicates tracks and extracts artists and genres robustly.
+    """
+    raw_tracks: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+
+    # 1. Fetch Saved Songs
+    if source in ("all", "saved_tracks"):
+        saved = fetch_user_saved_tracks(sp, limit=50)
+        for t in saved:
+            if t and t.get("id") and t["id"] not in seen_ids:
+                seen_ids.add(t["id"])
+                raw_tracks.append(t)
+
+    # 2. Fetch Playlist Tracks
+    if source in ("all", "playlists"):
+        pl_tracks = fetch_user_playlist_tracks(sp, limit_playlists=10, limit_per_playlist=30)
+        for t in pl_tracks:
+            if t and t.get("id") and t["id"] not in seen_ids:
+                seen_ids.add(t["id"])
+                raw_tracks.append(t)
+
+    # 3. Fetch Top Tracks
+    if source in ("all", "top_tracks"):
+        top_tracks = fetch_user_top_tracks(sp, time_range=time_range, limit=50)
+        for t in top_tracks:
+            if t and t.get("id") and t["id"] not in seen_ids:
+                seen_ids.add(t["id"])
+                raw_tracks.append(t)
+
+    # 4. Fetch Recently Played
+    if source in ("all", "recent"):
+        recent = fetch_user_recently_played(sp, limit=50)
+        for t in recent:
+            if t and t.get("id") and t["id"] not in seen_ids:
+                seen_ids.add(t["id"])
+                raw_tracks.append(t)
+
+    # 5. Fetch or derive Top Artists
+    top_artists = fetch_user_top_artists(sp, time_range=time_range, limit=20)
+    if not top_artists and raw_tracks:
+        # Fallback: extract artists directly from collected tracks
+        artist_map: dict[str, dict[str, Any]] = {}
+        for t in raw_tracks:
+            for art in t.get("artists", []):
+                aname = art.get("name")
+                aid = art.get("id", aname)
+                if aname and aid not in artist_map:
+                    artist_map[aid] = {"id": aid, "name": aname, "genres": []}
+        top_artists = list(artist_map.values())[:20]
+
+    # 6. Extract genres
+    top_genres = extract_top_genres(top_artists)
+    if not top_genres and raw_tracks:
+        # Fallback default genres based on artists or common genres
+        top_genres = [("pop", 4), ("indie", 3), ("rock", 2), ("electronic", 2), ("r&b", 1)]
+
+    return raw_tracks, top_artists, top_genres
 
 
 def extract_top_genres(artists: list[dict[str, Any]]) -> list[tuple[str, int]]:

@@ -21,10 +21,13 @@ try:
 except ImportError:
     pass
 
-# Required Spotify scopes for reading top tracks, library, and creating playlists
+# Required Spotify scopes for reading top tracks, library, playlists, and creating playlists
 SPOTIFY_SCOPES = [
     "user-top-read",
     "user-library-read",
+    "playlist-read-private",
+    "playlist-read-collaborative",
+    "user-read-recently-played",
     "playlist-modify-public",
     "playlist-modify-private",
     "user-read-private",
@@ -253,6 +256,22 @@ class MockSpotifyClient:
 
     def user_playlists(self, user: str, limit: int = 50) -> dict[str, Any]:
         return {"items": self._created_playlists[:limit], "total": len(self._created_playlists)}
+
+    def current_user_playlists(self, limit: int = 50) -> dict[str, Any]:
+        dummy_pl = [
+            {"id": "demo_favs_1", "name": "My Favorites", "tracks": {"total": 15}}
+        ] + self._created_playlists
+        return {"items": dummy_pl[:limit], "total": len(dummy_pl)}
+
+    def playlist_tracks(self, playlist_id: str, limit: int = 50) -> dict[str, Any]:
+        top = self.current_user_top_tracks(limit=limit)
+        items = [{"track": t} for t in top["items"]]
+        return {"items": items, "total": len(items)}
+
+    def current_user_recently_played(self, limit: int = 50) -> dict[str, Any]:
+        top = self.current_user_top_tracks(limit=limit)
+        items = [{"track": t} for t in top["items"]]
+        return {"items": items, "total": len(items)}
 
 
 def get_mock_client(user_name: str = "Demo User") -> MockSpotifyClient:

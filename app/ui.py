@@ -41,6 +41,7 @@ from app.library import (
     extract_top_genres,
     fetch_user_top_artists,
     fetch_user_top_tracks,
+    fetch_user_library_comprehensive,
     get_user_profile_summary,
     enrich_tracks_with_shared_format,
 )
@@ -287,66 +288,97 @@ with st.sidebar:
             st.session_state.ranked_tracks = []
         st.caption("Connected as **Alex (Demo Profile)**")
     else:
-        if st.session_state.is_demo:
-            st.session_state.is_demo = False
-            st.session_state.sp_client = None
-            st.session_state.user_profile = None
-            st.session_state.user_tracks = []
-            st.session_state.top_artists = []
-            st.session_state.top_genres = []
-            st.session_state.ranked_tracks = []
+        # Live Account Mode
+        is_live_authenticated = bool(not st.session_state.is_demo and st.session_state.sp_client is not None)
 
-        st.caption("Spotify Developer Credentials:")
-        client_id = st.text_input(
-            "Client ID",
-            value=os.getenv("SPOTIPY_CLIENT_ID", ""),
-            type="password",
-        )
-        client_secret = st.text_input(
-            "Client Secret",
-            value=os.getenv("SPOTIPY_CLIENT_SECRET", ""),
-            type="password",
-        )
-        redirect_uri = st.text_input(
-            "Redirect URI",
-            value=os.getenv("SPOTIPY_REDIRECT_URI", DEFAULT_REDIRECT_URI),
-        )
-
-        if client_id and client_secret:
-            sp_oauth = get_spotify_oauth(client_id, client_secret, redirect_uri)
-            auth_url = sp_oauth.get_authorize_url()
+        if is_live_authenticated:
+            # Check user profile
+            current_user_name = st.session_state.user_profile.get("display_name", "Spotify Listener") if st.session_state.user_profile else "Spotify Listener"
+            user_plan = st.session_state.user_profile.get("product", "Standard").capitalize() if st.session_state.user_profile else "Standard"
 
             st.markdown(
-                f'<a href="{auth_url}" target="_blank">'
-                f'<button style="width:100%; background:#10b981; color:#090b0e; font-weight:600; border-radius:8px; padding:9px; border:none; cursor:pointer; margin-top:8px;">'
-                f'1. Authorize with Spotify'
-                f'</button></a>',
+                f'<div style="background:#15181e; border:1px solid rgba(16,185,129,0.3); border-radius:10px; padding:14px; margin-top:8px;">'
+                f'<div style="color:#10b981; font-weight:600; font-size:0.9rem;">● Connected to Spotify</div>'
+                f'<div style="color:#ffffff; font-weight:700; font-size:1.05rem; margin-top:4px;">{current_user_name}</div>'
+                f'<div style="color:#94a3b8; font-size:0.8rem; margin-top:2px;">Plan: {user_plan}</div>'
+                f'</div>',
                 unsafe_allow_html=True,
             )
+            st.write("")
+            if st.button("Log Out / Disconnect", use_container_width=True):
+                st.session_state.sp_client = None
+                st.session_state.user_profile = None
+                st.session_state.user_tracks = []
+                st.session_state.top_artists = []
+                st.session_state.top_genres = []
+                st.session_state.ranked_tracks = []
+                if os.path.exists(".cache"):
+                    try:
+                        os.remove(".cache")
+                    except Exception:
+                        pass
+                st.rerun()
+        else:
+            if st.session_state.is_demo:
+                st.session_state.is_demo = False
+                st.session_state.sp_client = None
+                st.session_state.user_profile = None
+                st.session_state.user_tracks = []
+                st.session_state.top_artists = []
+                st.session_state.top_genres = []
+                st.session_state.ranked_tracks = []
 
-            st.caption("Opens Spotify's official login portal.")
-
-            auth_code = st.text_input(
-                "2. Paste Redirect URL:",
-                help="Paste the full callback URL from your browser address bar after authorizing.",
+            st.caption("Spotify Developer Credentials:")
+            client_id = st.text_input(
+                "Client ID",
+                value=os.getenv("SPOTIPY_CLIENT_ID", ""),
+                type="password",
+            )
+            client_secret = st.text_input(
+                "Client Secret",
+                value=os.getenv("SPOTIPY_CLIENT_SECRET", ""),
+                type="password",
+            )
+            redirect_uri = st.text_input(
+                "Redirect URI",
+                value=os.getenv("SPOTIPY_REDIRECT_URI", DEFAULT_REDIRECT_URI),
             )
 
-            if st.button("Connect Account"):
-                if auth_code:
-                    code = sp_oauth.parse_response_code(auth_code) if "?" in auth_code else auth_code
-                    sp = get_spotify_client(client_id, client_secret, redirect_uri, auth_code=code)
-                    if sp:
-                        st.session_state.sp_client = sp
-                        st.session_state.is_demo = False
-                        st.session_state.user_profile = None
-                        st.session_state.user_tracks = []
-                        st.session_state.top_artists = []
-                        st.session_state.top_genres = []
-                        st.session_state.ranked_tracks = []
-                        st.success("Account connected.")
-                        st.rerun()
-                    else:
-                        st.error("Authentication failed. Please verify credentials or URL.")
+            if client_id and client_secret:
+                sp_oauth = get_spotify_oauth(client_id, client_secret, redirect_uri)
+                auth_url = sp_oauth.get_authorize_url()
+
+                st.markdown(
+                    f'<a href="{auth_url}" target="_blank">'
+                    f'<button style="width:100%; background:#10b981; color:#090b0e; font-weight:600; border-radius:8px; padding:9px; border:none; cursor:pointer; margin-top:8px;">'
+                    f'1. Authorize with Spotify'
+                    f'</button></a>',
+                    unsafe_allow_html=True,
+                )
+
+                st.caption("Opens Spotify's official login portal.")
+
+                auth_code = st.text_input(
+                    "2. Paste Redirect URL:",
+                    help="Paste the full callback URL from your browser address bar after authorizing.",
+                )
+
+                if st.button("Connect Account"):
+                    if auth_code:
+                        code = sp_oauth.parse_response_code(auth_code) if "?" in auth_code else auth_code
+                        sp = get_spotify_client(client_id, client_secret, redirect_uri, auth_code=code)
+                        if sp:
+                            st.session_state.sp_client = sp
+                            st.session_state.is_demo = False
+                            st.session_state.user_profile = None
+                            st.session_state.user_tracks = []
+                            st.session_state.top_artists = []
+                            st.session_state.top_genres = []
+                            st.session_state.ranked_tracks = []
+                            st.success("Account connected.")
+                            st.rerun()
+                        else:
+                            st.error("Authentication failed. Please verify credentials or URL.")
 
 
 sp = st.session_state.sp_client
@@ -392,27 +424,43 @@ tab_taste, tab_studio, tab_result = st.tabs([
 
 # ----------------- TAB 1: LISTENING PROFILE -----------------
 with tab_taste:
-    col_t1, col_t2 = st.columns([3, 1])
+    col_t1, col_t2, col_t3 = st.columns([2, 2, 1])
     with col_t1:
+        source_mode = st.selectbox(
+            "Library Data Source:",
+            options=["all", "saved_tracks", "playlists", "top_tracks", "recent"],
+            format_func=lambda x: {
+                "all": "All Library (Saved Songs + Playlists + History)",
+                "saved_tracks": "Saved Songs (Liked Tracks)",
+                "playlists": "My Created & Saved Playlists",
+                "top_tracks": "Top Tracks History",
+                "recent": "Recently Played Tracks",
+            }[x],
+        )
+    with col_t2:
         time_range = st.selectbox(
-            "Listening Period:",
+            "Listening Horizon:",
             options=["medium_term", "short_term", "long_term"],
             format_func=lambda x: {
-                "short_term": "Recent Favorites (Last 4 Weeks)",
+                "short_term": "Recent Rotation (Last 4 Weeks)",
                 "medium_term": "Core Rotation (Last 6 Months)",
                 "long_term": "All-Time Classics (Multiple Years)",
             }[x],
         )
-    with col_t2:
+    with col_t3:
         st.write("")
         st.write("")
         if st.button("Sync Listening Data") or not st.session_state.user_tracks:
-            with st.spinner("Analyzing music library..."):
-                raw_top_tracks = fetch_user_top_tracks(sp, time_range=time_range, limit=50)
-                st.session_state.top_artists = fetch_user_top_artists(sp, time_range=time_range, limit=20)
-                st.session_state.top_genres = extract_top_genres(st.session_state.top_artists)
+            with st.spinner("Fetching library tracks, playlists, and artists..."):
+                raw_tracks, top_artists, top_genres = fetch_user_library_comprehensive(
+                    sp,
+                    source=source_mode,
+                    time_range=time_range,
+                )
+                st.session_state.top_artists = top_artists
+                st.session_state.top_genres = top_genres
                 st.session_state.user_tracks = enrich_tracks_with_shared_format(
-                    raw_top_tracks, lyrics_lookup=False
+                    raw_tracks, lyrics_lookup=False
                 )
 
     if st.session_state.user_tracks:
@@ -444,8 +492,6 @@ with tab_taste:
                 unsafe_allow_html=True,
             )
         with s4:
-            lyrics_count = sum(1 for t in st.session_state.user_tracks if t.get("has_lyrics"))
-            pct = int((lyrics_count / max(1, len(st.session_state.user_tracks))) * 100)
             st.markdown(
                 f'<div class="stat-panel">'
                 f'<div class="stat-panel-num">Active</div>'
@@ -510,6 +556,20 @@ with tab_taste:
             st.markdown("##### Frequent Artists")
             artists_str = " • ".join([a.get("name") for a in st.session_state.top_artists[:8]])
             st.markdown(f'<div style="color:#94a3b8; font-size:0.9rem; line-height:1.6;">{artists_str}</div>', unsafe_allow_html=True)
+
+        st.write("")
+        with st.expander(f"View Synced Library Tracks ({len(st.session_state.user_tracks)} Songs)"):
+            for idx, track in enumerate(st.session_state.user_tracks[:30], 1):
+                col_c, col_info = st.columns([1, 10])
+                with col_c:
+                    if track.get("image_url"):
+                        st.markdown(f'<img src="{track["image_url"]}" style="width:38px; height:38px; border-radius:4px; object-fit:cover;">', unsafe_allow_html=True)
+                    else:
+                        st.write("🎵")
+                with col_info:
+                    st.markdown(f"**{idx}. {track['title']}** — <span style='color:#94a3b8;'>{track['artist']}</span>", unsafe_allow_html=True)
+    else:
+        st.info("No tracks found in the selected source yet. Try selecting **All Library** or ensure your Spotify account has saved songs/playlists.")
 
 
 # ----------------- TAB 2: CURATOR STUDIO -----------------
