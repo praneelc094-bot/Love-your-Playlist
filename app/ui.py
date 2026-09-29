@@ -248,11 +248,25 @@ with st.sidebar:
     )
 
     if mode == "✨ Instant Demo":
-        st.session_state.is_demo = True
-        st.session_state.sp_client = get_mock_client("Alex")
+        if not st.session_state.is_demo or st.session_state.sp_client is None:
+            st.session_state.is_demo = True
+            st.session_state.sp_client = get_mock_client("Alex")
+            st.session_state.user_profile = None
+            st.session_state.user_tracks = []
+            st.session_state.top_artists = []
+            st.session_state.top_genres = []
+            st.session_state.ranked_tracks = []
         st.success("🟢 Demo Active: Connected as Alex")
     else:
-        st.session_state.is_demo = False
+        if st.session_state.is_demo:
+            st.session_state.is_demo = False
+            st.session_state.sp_client = None
+            st.session_state.user_profile = None
+            st.session_state.user_tracks = []
+            st.session_state.top_artists = []
+            st.session_state.top_genres = []
+            st.session_state.ranked_tracks = []
+
         st.caption("Spotify Developer Credentials:")
         client_id = st.text_input(
             "Client ID",
@@ -294,10 +308,16 @@ with st.sidebar:
                     sp = get_spotify_client(client_id, client_secret, redirect_uri, auth_code=code)
                     if sp:
                         st.session_state.sp_client = sp
+                        st.session_state.is_demo = False
+                        st.session_state.user_profile = None
+                        st.session_state.user_tracks = []
+                        st.session_state.top_artists = []
+                        st.session_state.top_genres = []
+                        st.session_state.ranked_tracks = []
                         st.success("Connected successfully!")
                         st.rerun()
                     else:
-                        st.error("Authentication failed. Please verify the URL.")
+                        st.error("Authentication failed. Please verify the URL or credentials.")
 
 
 sp = st.session_state.sp_client
@@ -360,7 +380,7 @@ with tab_taste:
                 st.session_state.top_artists = fetch_user_top_artists(sp, time_range=time_range, limit=20)
                 st.session_state.top_genres = extract_top_genres(st.session_state.top_artists)
                 st.session_state.user_tracks = enrich_tracks_with_shared_format(
-                    raw_top_tracks, lyrics_lookup=True
+                    raw_top_tracks, lyrics_lookup=False
                 )
                 st.success("Taste data synced!")
 
