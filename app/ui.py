@@ -1,6 +1,6 @@
 """
 Love Your Playlist - Web Application.
-Ultra-modern, premium Spotify-inspired interface.
+Ultra-modern, premium Spotify-inspired interface with seamless OAuth & Google/Apple login support.
 """
 
 from __future__ import annotations
@@ -224,13 +224,26 @@ def init_session_state():
 
 init_session_state()
 
+# Auto-capture OAuth code if redirected directly to Streamlit
+if "code" in st.query_params:
+    oauth_code = st.query_params.get("code")
+    client_id = os.getenv("SPOTIPY_CLIENT_ID")
+    client_secret = os.getenv("SPOTIPY_CLIENT_SECRET")
+    redirect_uri = os.getenv("SPOTIPY_REDIRECT_URI", DEFAULT_REDIRECT_URI)
+    if client_id and client_secret:
+        sp_client = get_spotify_client(client_id, client_secret, redirect_uri, auth_code=oauth_code)
+        if sp_client:
+            st.session_state.sp_client = sp_client
+            st.session_state.is_demo = False
+            st.query_params.clear()
+
 # ----------------- SIDEBAR -----------------
 with st.sidebar:
     st.markdown("### 🎧 **Audio Settings**")
 
     mode = st.radio(
         "Mode:",
-        ["✨ Instant Demo Mode", "🔐 Connect Spotify"],
+        ["✨ Instant Demo Mode", "🔐 Connect Spotify (Google/Apple/Email)"],
         index=0 if st.session_state.is_demo else 1,
     )
 
@@ -261,13 +274,18 @@ with st.sidebar:
             auth_url = sp_oauth.get_authorize_url()
 
             st.markdown(
-                f'<a href="{auth_url}" target="_blank"><button style="width:100%; background:#1DB954; color:#000; font-weight:700; border-radius:24px; padding:10px; border:none; cursor:pointer; margin-top:8px;">1. Authorize on Spotify</button></a>',
+                f'<a href="{auth_url}" target="_blank">'
+                f'<button style="width:100%; background:#1DB954; color:#000; font-weight:700; border-radius:24px; padding:10px; border:none; cursor:pointer; margin-top:8px;">'
+                f'1. Sign in with Spotify (Google / Apple / Email)'
+                f'</button></a>',
                 unsafe_allow_html=True,
             )
 
+            st.info("ℹ️ Clicking the button opens Spotify's secure login page where you can choose **Continue with Google**, Apple, Facebook, or Email.")
+
             auth_code = st.text_input(
                 "2. Paste Redirect URL:",
-                help="Copy the redirected URL from your browser address bar.",
+                help="Copy the redirected URL from your browser address bar after logging in.",
             )
 
             if st.button("Connect Account"):
