@@ -1,32 +1,83 @@
-# Love your Playlist
+# Love Your Playlist
 
-A model that reads a Spotify user's taste — lyrics, tune/audio features, and listening
-history — and generates a playlist that matches it.
+An AI model and application that reads a Spotify user's taste — lyric themes, tune/audio features, and listening history — and generates a customized playlist matching their unique vibe.
 
-## Team split
+---
 
-- **Person A — Data & Model** (`model/`): lyrics fetching, audio features, embeddings,
-  taste profile, ranking.
-- **Person B — Spotify & App** (`app/`): Spotify auth, top tracks/library, candidate
-  track search, playlist creation, UI.
+## Architecture & Team Split
 
-## Shared interface
+- **Person A — Data & Model (`model/`)**:
+  - Offline dataset ingestion (`prepare_dataset.py`, `sample_tracks.csv`)
+  - Lyrics fetching & caching (`lyrics.py` via LRCLIB)
+  - Semantic lyric embeddings with Sentence-Transformers (`embeddings.py`)
+  - Audio feature scaling & normalization (`embeddings.py`)
+  - Taste profile builder (`profile.py`)
+  - Similarity ranking with cosine similarity and diversity penalty (`rank.py`)
 
-Both sides agree on one track format and one model interface so each side can work
-independently. See [`docs/track-format.md`](docs/track-format.md) and
-[`docs/model-interface.md`](docs/model-interface.md).
+- **Person B — Spotify & App (`app/`)**:
+  - Spotify OAuth 2.0 Authorization Code Flow & Mock Simulator (`auth.py`)
+  - Top tracks & library ingestion pipeline (`library.py`)
+  - Multi-query candidate pool generator adapted for 2026 API limits (`candidates.py`)
+  - Baseline dummy ranker (`dummy_ranker.py`)
+  - Model integration bridge (`ranker.py`)
+  - Spotify playlist creator and batch track exporter (`playlist.py`)
+  - Interactive Spotify-themed Streamlit Web App (`ui.py`)
+  - Headless CLI runner (`cli.py`)
 
-## Status
+---
 
-- [ ] Phase 1 — Foundations (offline dataset, lyrics fetcher, audio features)
-- [ ] Phase 2 — Core logic (embeddings, taste profile, ranking, app pipeline + UI)
-- [ ] Phase 3 — Integration (real model plugged into the app)
-- [ ] Phase 4 — Polish (docs, demo, terms check)
-
-## Repo layout
+## Project Structure
 
 ```
-model/     Person A — data collection and taste/ranking model
-app/       Person B — Spotify auth, candidate search, playlist creation, UI
-docs/      Shared contracts both sides code against
+├── docs/
+│   ├── track-format.md         # Agreed shared track data schema
+│   └── model-interface.md      # Agreed model interface contracts
+├── model/                      # Person A deliverables
+│   ├── lyrics.py
+│   ├── prepare_dataset.py
+│   ├── check_lyrics_coverage.py
+│   ├── fetch_all_lyrics.py
+│   ├── embeddings.py
+│   ├── build.py
+│   ├── profile.py
+│   ├── rank.py
+│   ├── requirements.txt
+│   └── README.md
+├── app/                        # Person B deliverables
+│   ├── auth.py
+│   ├── library.py
+│   ├── candidates.py
+│   ├── dummy_ranker.py
+│   ├── ranker.py
+│   ├── playlist.py
+│   ├── ui.py
+│   ├── cli.py
+│   ├── requirements.txt
+│   └── README.md
+├── .env.example
+├── .gitignore
+└── README.md
+```
+
+---
+
+## How to Run
+
+### 1. Web UI (Streamlit)
+
+```bash
+pip install -r app/requirements.txt
+streamlit run app/ui.py
+```
+
+*You can use Instant Demo Mode (no API key required) or connect your live Spotify account.*
+
+### 2. Command Line (CLI)
+
+```bash
+# Run in Instant Demo Mode
+python -m app.cli --demo --count 20 --lyric-weight 0.6 --mood "Chill & Cozy" --create-playlist
+
+# Run with Live Spotify Account
+python -m app.cli --time-range medium_term --count 25 --lyric-weight 0.5 --create-playlist --name "My Taste Mix"
 ```
