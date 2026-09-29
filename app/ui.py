@@ -243,17 +243,17 @@ with st.sidebar:
 
     mode = st.radio(
         "Mode:",
-        ["✨ Instant Demo Mode", "🔐 Connect Spotify (Google/Apple/Email)"],
+        ["✨ Instant Demo", "🔐 Connect Spotify Account"],
         index=0 if st.session_state.is_demo else 1,
     )
 
-    if mode == "✨ Instant Demo Mode":
+    if mode == "✨ Instant Demo":
         st.session_state.is_demo = True
         st.session_state.sp_client = get_mock_client("Alex")
-        st.success("🟢 Connected as Alex (Demo)")
+        st.success("🟢 Demo Active: Connected as Alex")
     else:
         st.session_state.is_demo = False
-        st.caption("Enter Spotify API Credentials:")
+        st.caption("Spotify Developer Credentials:")
         client_id = st.text_input(
             "Client ID",
             value=os.getenv("SPOTIPY_CLIENT_ID", ""),
@@ -275,17 +275,17 @@ with st.sidebar:
 
             st.markdown(
                 f'<a href="{auth_url}" target="_blank">'
-                f'<button style="width:100%; background:#1DB954; color:#000; font-weight:700; border-radius:24px; padding:10px; border:none; cursor:pointer; margin-top:8px;">'
-                f'1. Sign in with Spotify (Google / Apple / Email)'
+                f'<button style="width:100%; background:linear-gradient(135deg, #10B981 0%, #059669 100%); color:#FFFFFF; font-weight:700; border-radius:24px; padding:10px; border:none; cursor:pointer; margin-top:8px; box-shadow:0 4px 15px rgba(16,185,129,0.3);">'
+                f'1. Authorize via Spotify'
                 f'</button></a>',
                 unsafe_allow_html=True,
             )
 
-            st.info("ℹ️ Clicking the button opens Spotify's secure login page where you can choose **Continue with Google**, Apple, Facebook, or Email.")
+            st.caption("🔒 Opens Spotify's secure authentication portal.")
 
             auth_code = st.text_input(
                 "2. Paste Redirect URL:",
-                help="Copy the redirected URL from your browser address bar after logging in.",
+                help="Copy the redirected URL from your browser address bar after authorizing.",
             )
 
             if st.button("Connect Account"):
