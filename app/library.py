@@ -83,17 +83,29 @@ def get_user_profile_summary(sp) -> dict[str, Any]:
     """Retrieves current user's profile details."""
     try:
         user_data = sp.current_user()
-        images = user_data.get("images", [])
-        image_url = images[0]["url"] if images else None
+        images = user_data.get("images", []) if user_data else []
+        image_url = images[0]["url"] if images and isinstance(images, list) and len(images) > 0 and isinstance(images[0], dict) else None
+
+        display_name = user_data.get("display_name") if user_data else None
+        if not display_name or str(display_name).strip() == "":
+            email = user_data.get("email") if user_data else None
+            if email:
+                display_name = email.split("@")[0].title()
+            elif user_data and user_data.get("id"):
+                display_name = str(user_data.get("id"))
+            else:
+                display_name = "Spotify Listener"
+
         return {
-            "id": user_data.get("id"),
-            "display_name": user_data.get("display_name") or "Spotify Listener",
-            "email": user_data.get("email"),
-            "product": user_data.get("product", "free"),
-            "followers": user_data.get("followers", {}).get("total", 0),
+            "id": user_data.get("id") if user_data else "unknown",
+            "display_name": display_name,
+            "email": user_data.get("email") if user_data else None,
+            "product": user_data.get("product", "free") if user_data else "free",
+            "followers": user_data.get("followers", {}).get("total", 0) if user_data and isinstance(user_data.get("followers"), dict) else 0,
             "image_url": image_url,
         }
     except Exception as e:
+        print(f"Error fetching user profile: {e}")
         return {
             "id": "unknown_user",
             "display_name": "Spotify Listener",
@@ -105,6 +117,22 @@ def get_user_profile_summary(sp) -> dict[str, Any]:
         }
 
 
+def fetch_user_saved_tracks(sp, limit: int = 50) -> list[dict[str, Any]]:
+    """Fetches user's saved/liked tracks from Spotify library."""
+    try:
+        results = sp.current_user_saved_tracks(limit=limit)
+        items = results.get("items", []) if results else []
+        tracks = []
+        for item in items:
+            t = item.get("track") if isinstance(item, dict) else None
+            if t and isinstance(t, dict) and t.get("id"):
+                tracks.append(t)
+        return tracks
+    except Exception as e:
+        print(f"Error fetching saved tracks: {e}")
+        return []
+
+
 def fetch_user_top_tracks(
     sp, time_range: str = "medium_term", limit: int = 50
 ) -> list[dict[str, Any]]:
@@ -114,7 +142,7 @@ def fetch_user_top_tracks(
     """
     try:
         results = sp.current_user_top_tracks(limit=limit, time_range=time_range)
-        return results.get("items", [])
+        return results.get("items", []) if results else []
     except Exception as e:
         print(f"Error fetching top tracks: {e}")
         return []
@@ -126,7 +154,7 @@ def fetch_user_top_artists(
     """Fetches user's top artists and their genres."""
     try:
         results = sp.current_user_top_artists(limit=limit, time_range=time_range)
-        return results.get("items", [])
+        return results.get("items", []) if results else []
     except Exception as e:
         print(f"Error fetching top artists: {e}")
         return []
