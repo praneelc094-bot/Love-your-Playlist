@@ -569,7 +569,37 @@ with tab_taste:
                 with col_info:
                     st.markdown(f"**{idx}. {track['title']}** — <span style='color:#94a3b8;'>{track['artist']}</span>", unsafe_allow_html=True)
     else:
-        st.info("No tracks found in the selected source yet. Try selecting **All Library** or ensure your Spotify account has saved songs/playlists.")
+        st.markdown(
+            """
+            <div style="background:#15181e; border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:20px; margin-top:12px;">
+                <h4 style="color:#ffffff; margin-top:0;">Library Sync Status</h4>
+                <p style="color:#94a3b8; font-size:0.9rem; line-height:1.6;">
+                    No tracks were returned by Spotify for this account. Under Spotify's developer security policy, personal library endpoints (<code>/v1/me/*</code>) require an <b>Active Spotify Premium subscription</b> on the account that registered the Developer App.
+                </p>
+                <p style="color:#cbd5e1; font-size:0.85rem; margin-bottom:0;">
+                    💡 You can load our authentic <b>Curated Sample Library</b> below to immediately test the acoustic radar profile, lyric balance sliders, and playlist ranking engine!
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.write("")
+        col_fb1, col_fb2 = st.columns(2)
+        with col_fb1:
+            if st.button("Load Curated Sample Library (15 Tracks)", use_container_width=True):
+                mock_cl = get_mock_client(user_name)
+                raw_tracks, top_artists, top_genres = fetch_user_library_comprehensive(mock_cl, source="all")
+                st.session_state.top_artists = top_artists
+                st.session_state.top_genres = top_genres
+                st.session_state.user_tracks = enrich_tracks_with_shared_format(raw_tracks, lyrics_lookup=False)
+                st.rerun()
+        with col_fb2:
+            if st.button("Switch to Instant Demo Mode", use_container_width=True):
+                st.session_state.is_demo = True
+                st.session_state.sp_client = get_mock_client("Alex")
+                st.session_state.user_profile = None
+                st.session_state.user_tracks = []
+                st.rerun()
 
 
 # ----------------- TAB 2: CURATOR STUDIO -----------------
