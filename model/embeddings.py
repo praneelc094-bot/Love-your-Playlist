@@ -10,30 +10,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-try:
-    import joblib
-except ImportError:
-    joblib = None
-
+import joblib
 import numpy as np
-
-try:
-    from sentence_transformers import SentenceTransformer
-except ImportError:
-    SentenceTransformer = None
-
-try:
-    from sklearn.preprocessing import MinMaxScaler
-except ImportError:
-    class MinMaxScaler:
-        def fit(self, X):
-            self.min_ = np.min(X, axis=0)
-            self.max_ = np.max(X, axis=0)
-            self.range_ = np.where(self.max_ - self.min_ == 0, 1.0, self.max_ - self.min_)
-            return self
-
-        def transform(self, X):
-            return (X - getattr(self, "min_", 0.0)) / getattr(self, "range_", 1.0)
+from sentence_transformers import SentenceTransformer
+from sklearn.preprocessing import MinMaxScaler
 
 DATA_DIR = Path(__file__).parent / "data"
 SCALER_PATH = DATA_DIR / "audio_feature_scaler.joblib"
@@ -55,17 +35,14 @@ AUDIO_FEATURE_COLS = [
 ]
 
 _LYRIC_MODEL_NAME = "all-MiniLM-L6-v2"
-_lyric_model = None
+_lyric_model: SentenceTransformer | None = None
 
 
-def get_lyric_model():
+def get_lyric_model() -> SentenceTransformer:
     """Lazy-loaded singleton — the model is ~80MB, don't reload it per call."""
     global _lyric_model
-    if _lyric_model is None and SentenceTransformer is not None:
-        try:
-            _lyric_model = SentenceTransformer(_LYRIC_MODEL_NAME)
-        except Exception:
-            _lyric_model = None
+    if _lyric_model is None:
+        _lyric_model = SentenceTransformer(_LYRIC_MODEL_NAME)
     return _lyric_model
 
 
@@ -74,34 +51,32 @@ def embed_lyrics(lyrics_text: str | None) -> np.ndarray | None:
     if not lyrics_text or not lyrics_text.strip():
         return None
     model = get_lyric_model()
-    if model is None:
-        vec = np.zeros(384, dtype=np.float32)
-        words = lyrics_text.lower().split()
-        for i, w in enumerate(words[:100]):
-            idx = abs(hash(w)) % 384
-            vec[idx] += 1.0 / (i + 1.0)
-        norm = np.linalg.norm(vec)
-        return (vec / norm).astype(np.float32) if norm > 0 else vec
-
-    # truncate very long lyrics — the model has a token limit anyway
+    # truncate very long lyrics — the model has a token limit anyway, and the
+    # chorus/opening verses carry most of a song's semantic signature
     truncated = lyrics_text[:2000]
     embedding = model.encode(truncated, normalize_embeddings=True)
     return embedding.astype(np.float32)
 
 
 def fit_audio_scaler(audio_feature_rows: np.ndarray) -> MinMaxScaler:
+    """Fits a MinMaxScaler on the full dataset's audio features and saves it.
+    Must be fit once on the whole corpus, then reused (never refit) for every
+    later normalize_audio_features() call — otherwise the same raw tempo
+    would map to different normalized values at different times."""
     scaler = MinMaxScaler()
     scaler.fit(audio_feature_rows)
     DATA_DIR.mkdir(exist_ok=True)
-    if joblib is not None:
-        joblib.dump(scaler, SCALER_PATH)
+    joblib.dump(scaler, SCALER_PATH)
     return scaler
 
 
 def load_audio_scaler() -> MinMaxScaler:
-    if joblib is not None and SCALER_PATH.exists():
-        return joblib.load(SCALER_PATH)
-    return MinMaxScaler()
+    if not SCALER_PATH.exists():
+        raise FileNotFoundError(
+            f"{SCALER_PATH} not found — run fit_audio_scaler() on the full "
+            "dataset first (build.py does this automatically)."
+        )
+    return joblib.load(SCALER_PATH)
 
 
 def normalize_audio_features(raw_features: dict, scaler: MinMaxScaler) -> np.ndarray:
