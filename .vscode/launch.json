@@ -1,0 +1,32 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Streamlit App: Love Your Playlist",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "streamlit",
+            "args": [
+                "run",
+                "${workspaceFolder}/app/ui.py",
+                "--server.port",
+                "8501"
+            ],
+            "jinja": true,
+            "justMyCode": true
+        },
+        {
+            "name": "CLI: Run Demo Playlist",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/app/cli.py",
+            "args": [
+                "--demo",
+                "--count",
+                "10"
+            ],
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}
