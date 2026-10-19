@@ -8,3 +8,5 @@ venv/
 .streamlit/secrets.toml
 config.js
 key.md
+Frontend/
+frontend/
