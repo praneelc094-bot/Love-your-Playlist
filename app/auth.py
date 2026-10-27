@@ -107,6 +107,30 @@ def get_spotify_client(
     return None
 
 
+def verify_spotify_premium(sp_client) -> tuple[bool, str]:
+    """
+    Verifies if the connected Spotify client belongs to an active Spotify Premium account
+    and is permitted under Spotify Web API policy.
+    Returns (is_premium, detail_message).
+    """
+    if not sp_client:
+        return False, "No Spotify client instance available."
+    try:
+        user_info = sp_client.current_user()
+        if not user_info:
+            return False, "Could not fetch user profile details from Spotify."
+        product = str(user_info.get("product", "free")).lower()
+        if product == "premium":
+            return True, "Active Spotify Premium subscription verified."
+        return False, f"Account tier detected: '{product.title()}'. An active Spotify Premium subscription is required."
+    except Exception as e:
+        err_msg = str(e)
+        if "premium" in err_msg.lower() or "403" in err_msg:
+            return False, "Spotify API returned 403: Active Spotify Premium subscription required for developer app owner."
+        return False, f"Spotify API error: {err_msg}"
+
+
+
 class MockSpotifyClient:
     """
     High-fidelity Mock Spotify Client for Demo Mode and offline testing.

@@ -10,3 +10,6 @@ config.js
 key.md
 Frontend/
 frontend/
+trail/
+.cache
+app/.cache

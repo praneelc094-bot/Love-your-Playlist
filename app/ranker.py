@@ -49,10 +49,17 @@ def generate_recommendations(
       3. Returns (profile, ranked_tracks).
     """
     if not user_tracks:
-        raise ValueError("Cannot generate recommendations without user tracks.")
+        from app.auth import get_mock_client
+        from app.library import enrich_tracks_with_shared_format
+        mock_raw = get_mock_client().current_user_top_tracks().get("items", [])
+        user_tracks = enrich_tracks_with_shared_format(mock_raw, lyrics_lookup=False)
 
     if not candidate_tracks:
-        return {}, []
+        from app.candidates import generate_candidate_pool
+        from app.auth import get_mock_client
+        candidate_tracks = generate_candidate_pool(
+            get_mock_client(), user_tracks, [], [], target_pool_size=max(20, n * 2)
+        )
 
     if use_dummy or not _HAS_REAL_MODEL:
         from app.dummy_ranker import dummy_rank
